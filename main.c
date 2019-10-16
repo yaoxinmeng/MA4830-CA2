@@ -1,0 +1,71 @@
+#include <stdio.h>
+#include <math.h>
+
+#define RESOLUTION 65536  // 2^16 bits
+#define VOLT_AMP 1        // voltage amplitude of DAC (depends on SFR)
+
+void set_dac(float voltage);
+void sin_generator(float *A, int n, float amp);
+void square_generator(float *A, int n, float amp);
+void triangle_generator(float *A, int n, float amp);
+void sawtooth_generator(float *A, int n, float amp);
+
+int main(void){
+  float sinwave[100];
+  sin_generator(sinwave, 100, 1);
+
+  return 0;
+}
+
+void set_dac(float voltage){
+  // calaculate data to send to DAC module
+  voltage = voltage/VOLT_AMP;
+  int data;
+  if (voltage < 0){
+    data = (int)(-1 * voltage * RESOLUTION/2);
+  }
+  else{
+    data = (int)(voltage * RESOLUTION/2 + RESOLUTION/2);
+  }
+
+  // communicate with DAC module
+
+}
+
+void sin_generator(float *A, int n, float amp){
+  int i;
+  for (i = 0; i < n; i++){
+    A[i] = amp * sin(i/(2*pi));
+  }
+}
+
+void square_generator(float *A, int n, float amp){
+  int i;
+  for (i = 0; i < n; i++){
+    if (i < n/2){
+      A[i] = -1 * amp;
+    }
+    else{
+      A[i] = amp;
+    }
+  }
+}
+
+void triangle_generator(float *A, int n, float amp){
+  int i;
+  for (i = 0; i < n; i++){
+    if (i < n/2){
+      A[i] = 2*amp / (n/2) * i - amp;
+    }
+    else{
+      A[i] = -2*amp / (n/2) * i + 3*amp;
+    }
+  }
+}
+
+void sawtooth_generator(float *A, int n, float amp){
+  int i;
+  for (i = 0; i < n; i++){
+    A[i] = 2*amp / n * i - amp;
+  }
+}
