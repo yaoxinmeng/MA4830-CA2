@@ -14,9 +14,14 @@ void square_generator(float *A, float amp, float mean);
 void triangle_generator(float *A, float amp, float mean);
 void sawtooth_generator(float *A, float amp, float mean);
 
-void help();                            // bring up command menu
+// command line i/o functions
+void help();                          // bring up command menu
+int read_waveform_config(float *A);   // read waveform config from command line
+int read_waveform_type(void);         // use string compare to find waveform type
+
+// peripherals communication functions
 void set_dac(float voltage);            // output points in waveform to DAC
-int read_waveform_config(float *A);    // read waveform config from command line
+
 
 int main(void){
   float sinwave[N];
@@ -29,6 +34,7 @@ int main(void){
 
   return 0;
 }
+
 
 void set_dac(float voltage){
   // calaculate data to send to DAC module
@@ -87,7 +93,7 @@ void help(){
   printf("\n************************************************************\n");
   printf("WAVEFORM GENERATOR\n");
   printf("\t-h Help Menu\n");
-  printf("\t-a Configure Waveform\n");
+  printf("\t-w Configure Waveform\n");
   printf("\t-q Quit\n");
   printf("************************************************************\n");
 }
