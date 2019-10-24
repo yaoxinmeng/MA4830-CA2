@@ -1,19 +1,31 @@
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #define RESOLUTION 65536  // 2^16 bits
 #define VOLT_AMP 1        // voltage amplitude of DAC (depends on SFR)
 #define N 100             // number of points in waveform
+#define BUFFER 50         // length of input string buffer
+#define PI 3.14159265359  // value of pi
 
-void set_dac(float voltage);
-void sin_generator(float *A, float amp);
-void square_generator(float *A, float amp);
-void triangle_generator(float *A, float amp);
-void sawtooth_generator(float *A, float amp);
+// waveform generators
+void sin_generator(float *A, float amp, float mean);
+void square_generator(float *A, float amp, float mean);
+void triangle_generator(float *A, float amp, float mean);
+void sawtooth_generator(float *A, float amp, float mean);
+
+void help();                            // bring up command menu
+void set_dac(float voltage);            // output points in waveform to DAC
+int read_waveform_config(float *A);    // read waveform config from command line
 
 int main(void){
   float sinwave[N];
-  sin_generator(sinwave, 1);
+  if(read_waveform_config(sinwave)){
+    int i;
+    for (i = 0; i < N; i++){
+      printf("%f\n", sinwave[i]);
+    }
+  }
 
   return 0;
 }
@@ -33,40 +45,113 @@ void set_dac(float voltage){
 
 }
 
-void sin_generator(float *A, float amp){
+void sin_generator(float *A, float amp, float mean){
   int i;
   for (i = 0; i < N; i++){
-    A[i] = amp * sin(i/(2*pi));
+    A[i] = mean + amp * sin((i*2*PI) / N);
   }
 }
 
-void square_generator(float *A, float amp){
-  int i;
-  for (i = 0; i < N; i++){
-    if (i < n/2){
-      A[i] = -1 * amp;
-    }
-    else{
-      A[i] = amp;
-    }
-  }
-}
-
-void triangle_generator(float *A, float amp){
+void square_generator(float *A, float amp, float mean){
   int i;
   for (i = 0; i < N; i++){
     if (i < N/2){
-      A[i] = 2*amp / (N/2) * i - amp;
+      A[i] = -1 * amp + mean;
     }
     else{
-      A[i] = -2*amp / (N/2) * i + 3*amp;
+      A[i] = amp + mean;
     }
   }
 }
 
-void sawtooth_generator(float *A, float amp){
+void triangle_generator(float *A, float amp, float mean){
   int i;
   for (i = 0; i < N; i++){
-    A[i] = 2*amp / N * i - amp;
+    if (i < N/2){
+      A[i] = 2*amp / (N/2) * i - amp + mean;
+    }
+    else{
+      A[i] = -2*amp / (N/2) * i + 3*amp + mean;
+    }
+  }
+}
+
+void sawtooth_generator(float *A, float amp, float mean){
+  int i;
+  for (i = 0; i < N; i++){
+    A[i] = 2*amp / N * i - amp + mean;
+  }
+}
+
+void help(){
+  printf("\n************************************************************\n");
+  printf("WAVEFORM GENERATOR\n");
+  printf("\t-h Help Menu\n");
+  printf("\t-a Configure Waveform\n");
+  printf("\t-q Quit\n");
+  printf("************************************************************\n");
+}
+
+int read_waveform_type(void){
+  char input[BUFFER];
+  printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
+  scanf("%s", input);
+
+  if (strcmp(input, "sine") == 0){
+    return 1;
+  }
+  else if (strcmp(input, "square") == 0){
+    return 2;
+  }
+  else if (strcmp(input, "triangle") == 0){
+    return 3;
+  }
+  else if (strcmp(input, "sawtooth") == 0){
+    return 4;
+  }
+  else{
+    // throw error
+    return -1;
+  }
+}
+
+int read_waveform_config(float *A){
+  float amp, mean, input;
+
+  printf("\nEnter the amplitude of waveform: ");
+  if(scanf("%f", &input) == 1){   // check if input is of float type
+    amp = input;
+
+    printf("Enter the mean value of waveform: ");
+    if(scanf("%f", &input) == 1){   // check if input is of float type
+      mean = input;
+
+      switch(read_waveform_type()){
+        case 1:   // sine
+          sin_generator(A, amp, mean);
+          break;
+        case 2:   // square
+          square_generator(A, amp, mean);
+          break;
+        case 3:   // triangle
+          triangle_generator(A, amp, mean);
+          break;
+        case 4:   // sawtooth
+          sawtooth_generator(A, amp, mean);
+          break;
+        default:  // error
+          printf("Error!");
+          return 0;
+      }
+      return 1;
+    }
+    else{
+      printf("Error!");
+      return 0;
+    }
+  }
+  else{
+    printf("Error!");
+    return 0;
   }
 }
