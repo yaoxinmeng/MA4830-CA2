@@ -1,0 +1,3 @@
+[1024/140325.743:ERROR:crash_report_database_win.cc(580)] CreateDirectory C:\Users\Public\Documents\Google\Chrome: The system cannot find the path specified. (0x3)
+[1024/140325.766:ERROR:registration_protocol_win.cc(84)] TransactNamedPipe: The pipe has been ended. (0x6D)
+[1024/140325.775:ERROR:crash_report_database_win.cc(580)] CreateDirectory C:\Users\Public\Documents\Google\Chrome: The system cannot find the path specified. (0x3)

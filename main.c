@@ -3,17 +3,18 @@
 
 #define RESOLUTION 65536  // 2^16 bits
 #define VOLT_AMP 1        // voltage amplitude of DAC (depends on SFR)
+#define N 100             // number of points in waveform
 
 void set_dac(float voltage);
-void sin_generator(float *A, int n, float amp);
-void square_generator(float *A, int n, float amp);
-void triangle_generator(float *A, int n, float amp);
-void sawtooth_generator(float *A, int n, float amp);
+void sin_generator(float *A, float amp);
+void square_generator(float *A, float amp);
+void triangle_generator(float *A, float amp);
+void sawtooth_generator(float *A, float amp);
 
 int main(void){
-  float sinwave[100];
-  sin_generator(sinwave, 100, 1);
-  ;;
+  float sinwave[N];
+  sin_generator(sinwave, 1);
+
   return 0;
 }
 
@@ -32,16 +33,16 @@ void set_dac(float voltage){
 
 }
 
-void sin_generator(float *A, int n, float amp){
+void sin_generator(float *A, float amp){
   int i;
-  for (i = 0; i < n; i++){
+  for (i = 0; i < N; i++){
     A[i] = amp * sin(i/(2*pi));
   }
 }
 
-void square_generator(float *A, int n, float amp){
+void square_generator(float *A, float amp){
   int i;
-  for (i = 0; i < n; i++){
+  for (i = 0; i < N; i++){
     if (i < n/2){
       A[i] = -1 * amp;
     }
@@ -51,21 +52,21 @@ void square_generator(float *A, int n, float amp){
   }
 }
 
-void triangle_generator(float *A, int n, float amp){
+void triangle_generator(float *A, float amp){
   int i;
-  for (i = 0; i < n; i++){
-    if (i < n/2){
-      A[i] = 2*amp / (n/2) * i - amp;
+  for (i = 0; i < N; i++){
+    if (i < N/2){
+      A[i] = 2*amp / (N/2) * i - amp;
     }
     else{
-      A[i] = -2*amp / (n/2) * i + 3*amp;
+      A[i] = -2*amp / (N/2) * i + 3*amp;
     }
   }
 }
 
-void sawtooth_generator(float *A, int n, float amp){
+void sawtooth_generator(float *A, float amp){
   int i;
-  for (i = 0; i < n; i++){
-    A[i] = 2*amp / n * i - amp;
+  for (i = 0; i < N; i++){
+    A[i] = 2*amp / N * i - amp;
   }
 }
