@@ -13,7 +13,7 @@ void sawtooth_generator(float *A, int n, float amp);
 int main(void){
   float sinwave[100];
   sin_generator(sinwave, 100, 1);
-
+  ;;
   return 0;
 }
 
