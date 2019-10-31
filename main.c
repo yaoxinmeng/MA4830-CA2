@@ -16,11 +16,12 @@ void sawtooth_generator(float *A, float amp, float mean);
 
 // command line i/o functions
 void help();                          // bring up command menu
-int read_waveform_config(float *A);   // read waveform config from command line
-int read_waveform_type(void);         // use string compare to find waveform type
+int dread_waveform_config(float *A);   // read waveform config from command line
+
+// analog i/o functions
 
 // peripherals communication functions
-void set_dac(float voltage);            // output points in waveform to DAC
+void set_dac(float voltage);          // output points in waveform to DAC
 
 
 int main(void){
@@ -30,6 +31,10 @@ int main(void){
     for (i = 0; i < N; i++){
       printf("%f\n", sinwave[i]);
     }
+  }
+
+  while(1){
+    // catch kill sig
   }
 
   return 0;
@@ -93,36 +98,15 @@ void help(){
   printf("\n************************************************************\n");
   printf("WAVEFORM GENERATOR\n");
   printf("\t-h Help Menu\n");
-  printf("\t-w Configure Waveform\n");
+  printf("\t-d Configure Waveform from Keyboard\n");
+  printf("\t-d Configure Waveform from Analog Board\n");
   printf("\t-q Quit\n");
   printf("************************************************************\n");
 }
 
-int read_waveform_type(void){
-  char input[BUFFER];
-  printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
-  scanf("%s", input);
-
-  if (strcmp(input, "sine") == 0){
-    return 1;
-  }
-  else if (strcmp(input, "square") == 0){
-    return 2;
-  }
-  else if (strcmp(input, "triangle") == 0){
-    return 3;
-  }
-  else if (strcmp(input, "sawtooth") == 0){
-    return 4;
-  }
-  else{
-    // throw error
-    return -1;
-  }
-}
-
-int read_waveform_config(float *A){
+int dread_waveform_config(float *A){
   float amp, mean, input;
+  char string[BUFFER]
 
   printf("\nEnter the amplitude of waveform: ");
   if(scanf("%f", &input) == 1){   // check if input is of float type
@@ -132,23 +116,26 @@ int read_waveform_config(float *A){
     if(scanf("%f", &input) == 1){   // check if input is of float type
       mean = input;
 
-      switch(read_waveform_type()){
-        case 1:   // sine
-          sin_generator(A, amp, mean);
-          break;
-        case 2:   // square
-          square_generator(A, amp, mean);
-          break;
-        case 3:   // triangle
-          triangle_generator(A, amp, mean);
-          break;
-        case 4:   // sawtooth
-          sawtooth_generator(A, amp, mean);
-          break;
-        default:  // error
-          printf("Error!");
-          return 0;
+      printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
+      scanf("%s", string);
+
+      if (strcmp(string, "sine") == 0){
+        sin_generator(A, amp, mean);
       }
+      else if (strcmp(string, "square") == 0){
+        square_generator(A, amp, mean);
+      }
+      else if (strcmp(string, "triangle") == 0){
+        triangle_generator(A, amp, mean);
+      }
+      else if (strcmp(string, "sawtooth") == 0){
+        sawtooth_generator(A, amp, mean);
+      }
+      else{   // throw error
+        printf("Error!");
+        return 0;
+      }
+
       return 1;
     }
     else{
