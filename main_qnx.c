@@ -129,6 +129,7 @@ void print_help(){
 int dread_waveform_config(){
   float amp, mean, input;
   char string[BUFFER];
+  int success = 0;
 
   pthread_mutex_lock(&printf_mutex);
   printf("\nEnter the amplitude of waveform: ");
@@ -159,18 +160,15 @@ int dread_waveform_config(){
         success = 1;
       }
       else{   // throw error
-        printf("Error!");
-        success = 0;
+        printf("Error - unrecognised input!\n");
       }
     }
     else{
-      printf("Error!");
-      success = 0;
+      printf("Error - unrecognised input!\n");
     }
   }
   else{
-    printf("Error!");
-    success = 0;
+    printf("Error - unrecognised input!\n");
   }
 
   pthread_mutex_unlock(&printf_mutex);
@@ -221,7 +219,7 @@ void *read_command(){
 void INThandler(int sig){
   char c;
 
-  printf("Exiting...");
+  printf("Exiting...\n");
   signal(sig, SIGINT);
   exit(0);
 }
