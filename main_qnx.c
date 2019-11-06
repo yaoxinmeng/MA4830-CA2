@@ -11,13 +11,15 @@
 #define N 100             // number of points in waveform
 #define BUFFER 50         // length of input string buffer
 #define PI 3.14159265359  // value of pi
-#define NUM_THREADS 5     // number of threads created
+#define NUM_THREADS 2     // number of threads created
 
 // global variables
 float freq;       // frequency
 float wave[N];    // waveform array
-// waveform configuration thread vars
+// thread variables
 pthread_mutex_t printf_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_t thread[NUM_THREADS];
+pthread_attr_t attr;
 
 // waveform generators
 void sin_generator(float amp, float mean);
@@ -32,15 +34,13 @@ void *read_command();            // read commands from help menu
 void INThandler(int sig);
 
 // analog i/o functions
+void* print_wave();
 
 // peripherals communication functions
 void set_dac(float voltage);          // output points in waveform to DAC
 
 
 int main(void){
-  // thread variables
-  pthread_t thread[NUM_THREADS];
-  pthread_attr_t attr;
   int rc;
   pthread_mutex_init(&printf_mutex, NULL);
 
@@ -48,6 +48,11 @@ int main(void){
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   rc = pthread_create(&thread[0], &attr, &read_command, NULL);
+  if(rc){
+    printf("ERROR - return code from pthread_create() is %d\n", rc);
+    exit(-1);
+  }
+  rc = pthread_create(&thread[1], &attr, &print_wave, NULL);
   if(rc){
     printf("ERROR - return code from pthread_create() is %d\n", rc);
     exit(-1);
@@ -116,22 +121,24 @@ void sawtooth_generator(float amp, float mean){
 }
 
 void print_help(){
-  pthread_mutex_lock(&printf_mutex);
   printf("\n************************************************************\n");
   printf("WAVEFORM GENERATOR\n");
   printf("\t-d Configure Waveform from Keyboard\n");
   printf("\t-a Configure Waveform from Analog Board\n");
   printf("\t-q Quit\n");
   printf("************************************************************\n");
-  pthread_mutex_unlock(&printf_mutex);
+  fflush(stdin);
 }
 
 int dread_waveform_config(){
   float amp, mean, input;
   char string[BUFFER];
+<<<<<<< HEAD
+  int success;
+=======
   int success = 0;
+>>>>>>> dcb0e52264f4d10fb3a0c469d1b2887e282c980a
 
-  pthread_mutex_lock(&printf_mutex);
   printf("\nEnter the amplitude of waveform: ");
   if(scanf("%f", &input) == 1){   // check if input is of float type
     amp = input;
@@ -171,7 +178,7 @@ int dread_waveform_config(){
     printf("Error - unrecognised input!\n");
   }
 
-  pthread_mutex_unlock(&printf_mutex);
+  fflush(stdin);
   return success;
 }
 
@@ -218,8 +225,20 @@ void *read_command(){
 
 void INThandler(int sig){
   char c;
+  int i;
 
   printf("Exiting...\n");
+<<<<<<< HEAD
+  // close all threads
+  for (i=0;i<NUM_THREADS;i++){
+    pthread_cancel(thread[i]);
+  }
+=======
+>>>>>>> dcb0e52264f4d10fb3a0c469d1b2887e282c980a
   signal(sig, SIGINT);
   exit(0);
+}
+
+void* print_wave(){
+
 }
