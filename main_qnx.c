@@ -47,6 +47,7 @@ float freq;       // frequency
 float data[N];    // waveform array
 // thread variables
 pthread_mutex_t printf_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t thread[NUM_THREADS];
 pthread_attr_t attr;
 void *hdl;
@@ -433,6 +434,7 @@ void *aread_waveform_config(){
   //**********************************************************************************************
   // Setup waveform array
   //**********************************************************************************************
+  pthread_mutex_lock( &aread_mutex);
   switch (mode){
     case 1:
       sin_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
@@ -449,5 +451,5 @@ void *aread_waveform_config(){
     default:
       break;
   }
-
+  pthread_mutex_unlock( &aread_mutex);
 }
