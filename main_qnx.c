@@ -136,20 +136,17 @@ void sin_generator(float amp, float mean, float freq){
   int i;
   float delta, dummy;
 
-  pthread_mutex_lock(&data_mutex);
   delta=(2.0*freq*PI)/N;					// increment
   for(i=0;i<N;i++) {
     dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000 ;
     data[i]= (unsigned) dummy + mean;			// add offset +  scale
   }
-  pthread_mutex_unlock(&data_mutex);
 }
 
 void square_generator(float amp, float mean, float freq){
 	int i;
   float delta, dummy;
 
-  pthread_mutex_lock(&data_mutex);
 	delta=(2.0*freq*PI)/N;					// increment
 	for(i=0;i<N;i++) {
 		dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
@@ -158,14 +155,12 @@ void square_generator(float amp, float mean, float freq){
 		else
 			data[i]= (1-amp)*0x8000 + mean;
 	}
-  pthread_mutex_unlock(&data_mutex);
 }
 
 void triangle_generator(float amp, float mean, float freq){
   float check[N], incre, dummy, delta;
   int i;
 
-  pthread_mutex_lock(&data_mutex);
   check[0] = 0x0000;
   data[0] = 0x8000;
   delta=(2.0*freq*PI)/200.0;					// increment
@@ -183,14 +178,12 @@ void triangle_generator(float amp, float mean, float freq){
     if ( check[i]<0x8000)
       data[i] = data[i-1]- incre + mean;
   }
-  pthread_mutex_unlock(&data_mutex);
 }
 
 void sawtooth_generator(float amp, float mean, float freq){
   float data1[N], check[N], delta, dummy, incre;
   int i;
 
-  pthread_mutex_lock(&data_mutex);
   data1[0]=0x8000;
   data[0]=0x8000;
   check[0]=0x0000;
@@ -216,7 +209,6 @@ void sawtooth_generator(float amp, float mean, float freq){
     else
       data[i] = data[i-1] +incre;
   }
-  pthread_mutex_unlock(&data_mutex);
 }
 
 void print_help(){
@@ -410,22 +402,23 @@ void setup_peripheral(){
 
 void *print_wave(){
   int i;
-
   while(1){
     for(i=0;i<N;i++) {
     	out16(DA_CTLREG,0x0a23);			// DA Enable, #0, #1, SW 5V unipolar		2/6
       out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
       out16(DA_DATA,(short) data[i]);
+      delay(3);
       out16(DA_CTLREG,0x0a43);			// DA Enable, #1, #1, SW 5V unipolar		2/6
       out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
     	out16(DA_DATA,(short) data[i]);
+      delay(3);
     }
   }
 }
 
 void *aread_waveform_config(){
   uint16_t adc_in1, adc_in2;
-  unsigned int i, count,mode=0;
+  unsigned int i, count,mode=1;
   unsigned short chan;
 
   count=0x00;
