@@ -46,7 +46,7 @@
 float freq;       // frequency
 float data[N];    // waveform array
 // thread variables
-pthread_mutex_t printf_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t thread[NUM_THREADS];
 pthread_attr_t attr;
 void *hdl;
@@ -62,17 +62,28 @@ void sawtooth_generator(float amp, float mean, float freq);
 // command line i/o functions
 void print_help();              // bring up command menu
 int dread_waveform_config();    // read waveform config from command line
-void *read_command();           // read commands from help menu
 void INThandler(int sig);
 
 // analog functions
-void *print_wave();             // output to DAC
 void setup_peripheral();        // setup peripherals
+
+// thread management
+void *read_command();           // read commands from help menu
 void *aread_waveform_config();  // read wavform params from potentiometers
+void *print_wave();             // output to DAC
+
 
 int main(void){
-  int rc;
-  pthread_mutex_init(&printf_mutex, NULL);
+  int rc, i;
+  pthread_mutex_init(&data_mutex, NULL);
+
+  // normalise data array
+  for (i=0; i<N; i++){
+    data[i] = 0;
+  }
+
+  // setup peripherals
+  setup_peripheral();
 
   // initialise threads
   pthread_attr_init(&attr);
@@ -93,9 +104,6 @@ int main(void){
     printf("ERROR - return code from pthread_create() is %d\n", rc);
     exit(-1);
   }
-
-  // setup peripherals
-  setup_peripheral();
 
   while(1){
     // catch kill sig
@@ -125,17 +133,20 @@ void sin_generator(float amp, float mean, float freq){
   int i;
   float delta, dummy;
 
+  pthread_mutex_lock(&data_mutex);
   delta=(2.0*freq*PI)/N;					// increment
   for(i=0;i<N;i++) {
     dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000 ;
     data[i]= (unsigned) dummy + mean;			// add offset +  scale
-    //printf("%d, ", data[i]);
-    }
+  }
+  pthread_mutex_unlock(&data_mutex);
 }
 
 void square_generator(float amp, float mean, float freq){
 	int i;
   float delta, dummy;
+
+  pthread_mutex_lock(&data_mutex);
 	delta=(2.0*freq*PI)/N;					// increment
 	for(i=0;i<N;i++) {
 		dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
@@ -144,12 +155,14 @@ void square_generator(float amp, float mean, float freq){
 		else
 			data[i]= (1-amp)*0x8000 + mean;
 	}
+  pthread_mutex_unlock(&data_mutex);
 }
 
 void triangle_generator(float amp, float mean, float freq){
   float check[N], incre, dummy, delta;
   int i;
 
+  pthread_mutex_lock(&data_mutex);
   check[0] = 0x0000;
   data[0] = 0x8000;
   delta=(2.0*freq*PI)/200.0;					// increment
@@ -167,12 +180,14 @@ void triangle_generator(float amp, float mean, float freq){
     if ( check[i]<0x8000)
       data[i] = data[i-1]- incre + mean;
   }
+  pthread_mutex_unlock(&data_mutex);
 }
 
 void sawtooth_generator(float amp, float mean, float freq){
   float data1[N], check[N], delta, dummy, incre;
   int i;
 
+  pthread_mutex_lock(&data_mutex);
   data1[0]=0x8000;
   data[0]=0x8000;
   check[0]=0x0000;
@@ -198,6 +213,7 @@ void sawtooth_generator(float amp, float mean, float freq){
     else
       data[i] = data[i-1] +incre;
   }
+  pthread_mutex_unlock(&data_mutex);
 }
 
 void print_help(){
@@ -273,16 +289,10 @@ void *read_command(){
       else{
         switch (input[1]){      // check command type
           case 'd':   // digital config
-            // calls and checks in config is sensible
-            if(dread_waveform_config()){
-              int i;
-              for (i = 0; i < N; i++){
-                printf("%f\n", data[i]);
-              }
-            }
+            dread_waveform_config();
             break;
           case 'a':   // analog confiq
-            
+
             break;
           case 'q':   // quit
             // send kill sig
@@ -385,10 +395,12 @@ void setup_peripheral(){
   out16(AUTOCAL,0x007f);					// sets automatic calibration : default
 
   out16(AD_FIFOCLR,0); 						// clear ADC buffer
-  out16(MUXCHAN,0x0D00);				// Write to MUX register - SW trigger, UP, SE, 5v, ch 0-0
-  														// x x 0 0 | 1  0  0 1  | 0x 7   0 | Diff - 8 channels
-  														// SW trig |Diff-Uni 5v| scan 0-7| Single - 16 channels
 
+  // Write to MUX register - SW trigger, UP, SE, 5v, ch 0-0
+  // x x 0 0 | 1  0  0 1  | 0x 7   0 | Diff - 8 channels
+  // SW trig |Diff-Uni 5v| scan 0-7| Single - 16 channels
+  out16(MUXCHAN,0x0D00);
+  fflush(stdin);
 }
 
 void *print_wave(){
@@ -408,7 +420,7 @@ void *print_wave(){
 
 void *aread_waveform_config(){
   uint16_t adc_in1, adc_in2;
-  unsigned int i, count,mode=4;
+  unsigned int i, count,mode=0;
   unsigned short chan;
 
   count=0x00;
