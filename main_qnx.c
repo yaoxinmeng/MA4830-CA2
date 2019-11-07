@@ -15,7 +15,7 @@
 #define N 200             // number of points in waveform
 #define BUFFER 50         // length of input string buffer
 #define PI 3.14159265359  // value of pi
-#define NUM_THREADS 2     // number of threads created
+#define NUM_THREADS 3     // number of threads created
 
 #define	INTERRUPT		iobase[1] + 0				// Badr1 + 0 : also ADC register
 #define	MUXCHAN			iobase[1] + 2				// Badr1 + 2
@@ -62,13 +62,13 @@ void sawtooth_generator(float amp, float mean, float freq);
 // command line i/o functions
 void print_help();              // bring up command menu
 int dread_waveform_config();    // read waveform config from command line
-void *read_command();            // read commands from help menu
+void *read_command();           // read commands from help menu
 void INThandler(int sig);
 
 // analog functions
-void* print_wave();           // output to DAC
-void setup_peripheral();      // setup peripherals
-void *aread_waveform_config(); // read wavform params from potentiometers
+void *print_wave();             // output to DAC
+void setup_peripheral();        // setup peripherals
+void *aread_waveform_config();  // read wavform params from potentiometers
 
 int main(void){
   int rc;
@@ -179,7 +179,7 @@ void sawtooth_generator(float amp, float mean, float freq){
   delta=(2.0*freq*PI)/200.0;					// increment
   incre=(amp*0x8000)/(200/(1*freq));
 
-  for(i=1;i<200;i++) {
+  for(i=1;i<N;i++) {
     dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
     if (dummy > 0x8000)
       check[i]= (amp+1)*0x8000;			// add offset +  scale
@@ -192,7 +192,7 @@ void sawtooth_generator(float amp, float mean, float freq){
       data1[i] = data1[i-1]- 1;
   }
 
-  for(i=1;i<200;i++) {
+  for(i=1;i<N;i++) {
     if (data1[i] == 0x8000)
       data[i] =  0x8000;
     else
@@ -282,7 +282,7 @@ void *read_command(){
             }
             break;
           case 'a':   // analog confiq
-
+            
             break;
           case 'q':   // quit
             // send kill sig
@@ -391,11 +391,11 @@ void setup_peripheral(){
 
 }
 
-void* print_wave(){
+void *print_wave(){
   int i;
 
   while(1){
-    for(i=0;i<200;i++) {
+    for(i=0;i<N;i++) {
     	out16(DA_CTLREG,0x0a23);			// DA Enable, #0, #1, SW 5V unipolar		2/6
       out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
       out16(DA_DATA,(short) data[i]);
@@ -415,8 +415,8 @@ void *aread_waveform_config(){
   while(count <0x02) {
     chan= ((count & 0x0f)<<4) | (0x0f & count);
     out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
-    delay(1);				 								// allow mux to settle
-    out16(AD_DATA,0); 							// start ADC
+    delay(1);				 							// allow mux to settle
+    out16(AD_DATA,0); 						// start ADC
     while(!(in16(MUXCHAN) & 0x4000));
 
     if (count == 0x00)
@@ -428,11 +428,9 @@ void *aread_waveform_config(){
     fflush( stdout );
     count++;
     delay(5);
-  }									// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
+  }				// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
 
-  //**********************************************************************************************
   // Setup waveform array
-  //**********************************************************************************************
   switch (mode){
     case 1:
       sin_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
