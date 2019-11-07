@@ -50,6 +50,8 @@ pthread_mutex_t printf_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t thread[NUM_THREADS];
 pthread_attr_t attr;
 void *hdl;
+uintptr_t iobase[6];
+int badr[5];
 
 // waveform generators
 void sin_generator(float amp, float mean, float freq);
@@ -66,7 +68,7 @@ void INThandler(int sig);
 // analog functions
 void* print_wave();           // output to DAC
 void setup_peripheral();      // setup peripherals
-void *aread_waveform_config() // read wavform params from potentiometers
+void *aread_waveform_config(); // read wavform params from potentiometers
 
 int main(void){
   int rc;
@@ -121,7 +123,9 @@ void set_dac(float voltage){
 
 void sin_generator(float amp, float mean, float freq){
   int i;
-  float delta=(2.0*freq*3.142)/N;					// increment
+  float delta, dummy;
+
+  delta=(2.0*freq*PI)/N;					// increment
   for(i=0;i<N;i++) {
     dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000 ;
     data[i]= (unsigned) dummy + mean;			// add offset +  scale
@@ -132,13 +136,13 @@ void sin_generator(float amp, float mean, float freq){
 void square_generator(float amp, float mean, float freq){
 	int i;
   float delta, dummy;
-	delta=(2.0*freq*3.142)/N;					// increment
+	delta=(2.0*freq*PI)/N;					// increment
 	for(i=0;i<N;i++) {
-		dummy= ((adc_in1/65535.0)*(sinf((float)(i*delta))) + 1.0) * 0x8000;
+		dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
 		if (dummy > 0x8000)
-			data[i]= ((adc_in1/65535.0)+1)*0x8000 + mean;			// add offset +  scale
+			data[i]= (amp+1)*0x8000 + mean;			// add offset +  scale
 		else
-			data[i]= (1-(adc_in1/65535.0))*0x8000 + mean;
+			data[i]= (1-amp)*0x8000 + mean;
 	}
 }
 
@@ -148,7 +152,7 @@ void triangle_generator(float amp, float mean, float freq){
 
   check[0] = 0x0000;
   data[0] = 0x8000;
-  delta=(2.0*freq*3.142)/200.0;					// increment
+  delta=(2.0*freq*PI)/200.0;					// increment
   incre=(amp*0x8000)/(N/(2*freq));
 
   for(i=1;i<N;i++) {
@@ -172,7 +176,7 @@ void sawtooth_generator(float amp, float mean, float freq){
   data1[0]=0x8000;
   data[0]=0x8000;
   check[0]=0x0000;
-  delta=(2.0*freq*3.142)/200.0;					// increment
+  delta=(2.0*freq*PI)/200.0;					// increment
   incre=(amp*0x8000)/(200/(1*freq));
 
   for(i=1;i<200;i++) {
@@ -273,7 +277,7 @@ void *read_command(){
             if(dread_waveform_config()){
               int i;
               for (i = 0; i < N; i++){
-                printf("%f\n", wave[i]);
+                printf("%f\n", data[i]);
               }
             }
             break;
@@ -325,7 +329,6 @@ void INThandler(int sig){
 void setup_peripheral(){
   struct pci_dev_info info;
 
-  uintptr_t iobase[6];
   uintptr_t dio_in;
 
   unsigned int i;
@@ -389,15 +392,16 @@ void setup_peripheral(){
 }
 
 void* print_wave(){
+  int i;
+
   while(1){
     for(i=0;i<200;i++) {
     	out16(DA_CTLREG,0x0a23);			// DA Enable, #0, #1, SW 5V unipolar		2/6
-       	out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
-       	out16(DA_DATA,(short) data[i]);
-       	out16(DA_CTLREG,0x0a43);			// DA Enable, #1, #1, SW 5V unipolar		2/6
-      	out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
+      out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
+      out16(DA_DATA,(short) data[i]);
+      out16(DA_CTLREG,0x0a43);			// DA Enable, #1, #1, SW 5V unipolar		2/6
+      out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
     	out16(DA_DATA,(short) data[i]);
-      	}
     }
   }
 }
@@ -416,16 +420,15 @@ void *aread_waveform_config(){
     while(!(in16(MUXCHAN) & 0x4000));
 
     if (count == 0x00)
-    adc_in1=in16(AD_DATA);
+      adc_in1=in16(AD_DATA);
 
-
-    if (count == 0x01)adc_in1/65535.0, 0, adc_in2/6553.5
-    adc_in2=in16(AD_DATA);
+    if (count == 0x01)
+      adc_in2=in16(AD_DATA);
 
     fflush( stdout );
     count++;
     delay(5);
-    }									// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
+  }									// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
 
   //**********************************************************************************************
   // Setup waveform array
