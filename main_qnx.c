@@ -45,6 +45,7 @@
 // global variables
 float freq;       // frequency
 float data[N];    // waveform array
+int condition = 0;    //convars condition
 // thread variables
 pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
@@ -291,10 +292,12 @@ void *read_command(){
       else{
         switch (input[1]){      // check command type
           case 'd':   // digital config
+            condition = 0;
             dread_waveform_config();
             break;
           case 'a':   // analog confiq
-
+            condition = 1;
+            pthread_cond_signal(&aread_cond);
             break;
           case 'q':   // quit
             // send kill sig
@@ -426,39 +429,44 @@ void *aread_waveform_config(){
   unsigned short chan;
 
   count=0x00;
-  while(count <0x02) {
-    chan= ((count & 0x0f)<<4) | (0x0f & count);
-    out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
-    delay(1);				 							// allow mux to settle
-    out16(AD_DATA,0); 						// start ADC
-    while(!(in16(MUXCHAN) & 0x4000));
+  while(1){
+    pthread_mutex_lock(&aread_mutex);
+    while(condition ==0) pthread_cond_wait(&aread_cond, &aread_mutex);
+    while(count <0x02) {
+      chan= ((count & 0x0f)<<4) | (0x0f & count);
+      out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
+      delay(1);				 							// allow mux to settle
+      out16(AD_DATA,0); 						// start ADC
+      while(!(in16(MUXCHAN) & 0x4000));
 
-    if (count == 0x00)
-      adc_in1=in16(AD_DATA);
+      if (count == 0x00)
+        adc_in1=in16(AD_DATA);
 
-    if (count == 0x01)
-      adc_in2=in16(AD_DATA);
+      if (count == 0x01)
+        adc_in2=in16(AD_DATA);
 
-    fflush( stdout );
-    count++;
-    delay(5);
-  }				// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
+      fflush( stdout );
+      count++;
+      delay(5);
+    }				// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
 
-  // Setup waveform array
-  switch (mode){
-    case 1:
-      sin_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
-      break;
-    case 2:
-      square_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
-      break;
-    case 3:
-      triangle_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
-      break;
-    case 4:
-      sawtooth_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
-      break;
-    default:
-      break;
+    // Setup waveform array
+    switch (mode){
+      case 1:
+        sin_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+        break;
+      case 2:
+        square_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+        break;
+      case 3:
+        triangle_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+        break;
+      case 4:
+        sawtooth_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+        break;
+      default:
+        break;
+    }
+    pthread_mutex_unlock( &aread_mutex);
   }
 }
