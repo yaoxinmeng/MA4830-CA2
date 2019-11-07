@@ -47,7 +47,6 @@ float freq;       // frequency
 float data[N];    // waveform array
 int condition = 0;    //convars condition
 // thread variables
-pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
 pthread_cond_t aread_cond = PTHREAD_COND_INITIALIZER; //aread convar
 pthread_t thread[NUM_THREADS];
@@ -78,7 +77,7 @@ void *print_wave();             // output to DAC
 
 int main(void){
   int rc, i;
-  pthread_mutex_init(&data_mutex, NULL);
+  pthread_mutex_init(&aread_mutex, NULL);
 
   // normalise data array
   for (i=0; i<N; i++){
@@ -288,8 +287,10 @@ void *read_command(){
             dread_waveform_config();
             break;
           case 'a':   // analog confiq
+            pthread_mutex_lock(&aread_mutex);
             condition = 1;
             pthread_cond_signal(&aread_cond);
+            pthread_mutex_lock(&aread_mutex);
             break;
           case 'q':   // quit
             // send kill sig
