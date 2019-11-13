@@ -10,8 +10,6 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define RESOLUTION 65536  // 2^16 bits
-#define VOLT_AMP 1        // voltage amplitude of DAC (depends on SFR)
 #define N 200             // number of points in waveform
 #define BUFFER 50         // length of input string buffer
 #define PI 3.14159265359  // value of pi
@@ -43,13 +41,12 @@
 #define	DA_FIFOCLR	iobase[4] + 2				// Badr4 + 2
 
 // global variables
-float freq;           // frequency
 float data[N];        // waveform array
 int condition = 0;    // convars condition
 void *hdl;            // pci attach pointer
 uintptr_t iobase[6];  // I/O addresses
 int badr[5];          // base addresses
-int exit = 0;         // check if SIGINT is sent
+int kill_sig = 0;     // check if SIGINT is sent
 
 // thread variables
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
@@ -110,8 +107,8 @@ int main(void){
     exit(-1);
   }
 
-  while(!exit){
-    // catch kill sig
+  // catch kill sig
+  while(!kill_sig){
     signal(SIGINT, INThandler);
   }
 
@@ -132,25 +129,9 @@ int main(void){
   out16(DA_DATA, 0x8fff);
   pci_detach_device(hdl);
 
-  printf("\n\nExit Success!\n");
+  printf("\nExit Success!\n");
 
   return 0;
-}
-
-
-void set_dac(float voltage){
-  int data;
-  // calaculate data to send to DAC module
-  voltage = voltage/VOLT_AMP;
-  if (voltage < 0){
-    data = (int)(-1 * voltage * RESOLUTION/2);
-  }
-  else{
-    data = (int)(voltage * RESOLUTION/2 + RESOLUTION/2);
-  }
-
-  // communicate with DAC module
-
 }
 
 void sin_generator(float amp, float mean, float freq){
@@ -242,7 +223,7 @@ void print_help(){
 }
 
 int dread_waveform_config(){
-  float amp, mean, input;
+  float amp, mean, freq, input;
   char string[BUFFER];
   int success = 0;
 
@@ -256,27 +237,36 @@ int dread_waveform_config(){
     if(scanf("%f", &input) == 1){   // check if input is of float type
       mean = input;
 
-      printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
+      printf("Enter the frequency of waveform: ");
       fflush(stdout);
-      scanf("%s", string);
+      if(scanf("%f", &input) == 1){   // check if input is of float type
+        freq = input;
 
-      if (strcmp(string, "sine") == 0){
-        sin_generator(amp, mean, 1);
-        success = 1;
+        printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
+        fflush(stdout);
+        scanf("%s", string);
+
+        if (strcmp(string, "sine") == 0){
+          sin_generator(amp, mean, freq);
+          success = 1;
+        }
+        else if (strcmp(string, "square") == 0){
+          square_generator(amp, mean, freq);
+          success = 1;
+        }
+        else if (strcmp(string, "triangle") == 0){
+          triangle_generator(amp, mean, freq);
+          success = 1;
+        }
+        else if (strcmp(string, "sawtooth") == 0){
+          sawtooth_generator(amp, mean, freq);
+          success = 1;
+        }
+        else{   // throw error
+          printf("Error - unrecognised input!\n");
+        }
       }
-      else if (strcmp(string, "square") == 0){
-        square_generator(amp, mean, 1);
-        success = 1;
-      }
-      else if (strcmp(string, "triangle") == 0){
-        triangle_generator(amp, mean, 1);
-        success = 1;
-      }
-      else if (strcmp(string, "sawtooth") == 0){
-        sawtooth_generator(amp, mean, 1);
-        success = 1;
-      }
-      else{   // throw error
+      else{
         printf("Error - unrecognised input!\n");
       }
     }
@@ -314,11 +304,12 @@ void *read_command(){
             pthread_mutex_lock(&aread_mutex);
             condition = 1;
             pthread_cond_signal(&aread_cond);
-            pthread_mutex_lock(&aread_mutex);
+            pthread_mutex_unlock(&aread_mutex);
             break;
           case 'q':   // quit
             // send kill sig
             raise(SIGINT);
+            delay(5);
             break;
           default:    // not any of the letters above
             printf("Error - \"%s\" is not recognised as a command!\n", input);
@@ -332,7 +323,7 @@ void *read_command(){
 }
 
 void INThandler(int sig){
-  exit = 1;
+  kill_sig = 1;
 }
 
 void setup_peripheral(){
@@ -424,10 +415,10 @@ void *aread_waveform_config(){
   unsigned int i, count,mode=1;
   unsigned short chan;
 
-  count=0x00;
   while(1){
     pthread_mutex_lock(&aread_mutex);
-    while(condition ==0) pthread_cond_wait(&aread_cond, &aread_mutex);
+    while(condition == 0) pthread_cond_wait(&aread_cond, &aread_mutex);
+    count=0x00;
     while(count <0x02) {
       chan= ((count & 0x0f)<<4) | (0x0f & count);
       out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
@@ -440,8 +431,8 @@ void *aread_waveform_config(){
 
       if (count == 0x01)
         adc_in2=in16(AD_DATA);
-
       fflush(stdout);
+
       count++;
       delay(5);
     }				// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
