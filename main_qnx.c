@@ -217,7 +217,6 @@ void print_help(){
   printf("\t-a Configure Waveform from Analog Board\n");
   printf("\t-q Quit\n");
   printf("************************************************************\n");
-  fflush(stdin);
 }
 
 int dread_waveform_config(){
@@ -226,14 +225,17 @@ int dread_waveform_config(){
   int success = 0;
 
   printf("\nEnter the amplitude of waveform: ");
+  fflush(stdout);
   if(scanf("%f", &input) == 1){   // check if input is of float type
     amp = input;
 
     printf("Enter the mean value of waveform: ");
+    fflush(stdout);
     if(scanf("%f", &input) == 1){   // check if input is of float type
       mean = input;
 
       printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
+      fflush(stdout);
       scanf("%s", string);
 
       if (strcmp(string, "sine") == 0){
@@ -264,7 +266,7 @@ int dread_waveform_config(){
     printf("Error - unrecognised input!\n");
   }
 
-  fflush(stdin);
+  fflush(stdout);
   return success;
 }
 
@@ -341,7 +343,7 @@ void setup_peripheral(){
 
   unsigned int i;
 
-  printf("\fDemonstration Routine for PCI-DAS 1602\n\n");
+  printf("\fSetting up connection to PCI-DAS 1602...\n\n");
 
   memset(&info,0,sizeof(info));
   if(pci_attach(0)<0) {
@@ -383,7 +385,7 @@ void setup_peripheral(){
   printf("\nDIO Functions\n");
   out8(DIO_CTLREG,0x90);					// Port A : Input,  Port B : Output,  Port C (upper | lower) : Output | Output
   dio_in=in8(DIO_PORTA); 					// Read Port A
-  printf("Port A : %02x\n", dio_in);
+  printf("Port A : %02x\n\n", dio_in);
   out8(DIO_PORTB, dio_in);					// output Port A value -> write to Port B
 
   // ADC Port Functions
@@ -398,7 +400,8 @@ void setup_peripheral(){
   // x x 0 0 | 1  0  0 1  | 0x 7   0 | Diff - 8 channels
   // SW trig |Diff-Uni 5v| scan 0-7| Single - 16 channels
   out16(MUXCHAN,0x0D00);
-  fflush(stdin);
+  
+  printf("Initialising...\n\n");
 }
 
 void *print_wave(){
@@ -439,7 +442,7 @@ void *aread_waveform_config(){
       if (count == 0x01)
         adc_in2=in16(AD_DATA);
 
-      fflush( stdout );
+      fflush(stdout);
       count++;
       delay(5);
     }				// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
