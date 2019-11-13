@@ -24,36 +24,38 @@
 #define DA_CTLREG		iobase[1] + 8				// Badr1 + 8
 
 #define	AD_DATA			iobase[2] + 0				// Badr2 + 0
-#define	AD_FIFOCLR		iobase[2] + 2				// Badr2 + 2
+#define	AD_FIFOCLR	iobase[2] + 2				// Badr2 + 2
 
-#define	TIMER0				iobase[3] + 0				// Badr3 + 0
-#define	TIMER1				iobase[3] + 1				// Badr3 + 1
-#define	TIMER2				iobase[3] + 2				// Badr3 + 2
-#define	COUNTCTL			iobase[3] + 3				// Badr3 + 3
+#define	TIMER0			iobase[3] + 0				// Badr3 + 0
+#define	TIMER1			iobase[3] + 1				// Badr3 + 1
+#define	TIMER2			iobase[3] + 2				// Badr3 + 2
+#define	COUNTCTL		iobase[3] + 3				// Badr3 + 3
 #define	DIO_PORTA		iobase[3] + 4				// Badr3 + 4
 #define	DIO_PORTB		iobase[3] + 5				// Badr3 + 5
 #define	DIO_PORTC		iobase[3] + 6				// Badr3 + 6
-#define	DIO_CTLREG		iobase[3] + 7				// Badr3 + 7
-#define	PACER1				iobase[3] + 8				// Badr3 + 8
-#define	PACER2				iobase[3] + 9				// Badr3 + 9
-#define	PACER3				iobase[3] + a				// Badr3 + a
-#define	PACERCTL			iobase[3] + b				// Badr3 + b
+#define	DIO_CTLREG	iobase[3] + 7				// Badr3 + 7
+#define	PACER1			iobase[3] + 8				// Badr3 + 8
+#define	PACER2			iobase[3] + 9				// Badr3 + 9
+#define	PACER3			iobase[3] + a				// Badr3 + a
+#define	PACERCTL		iobase[3] + b				// Badr3 + b
 
-#define DA_DATA				iobase[4] + 0				// Badr4 + 0
-#define	DA_FIFOCLR		iobase[4] + 2				// Badr4 + 2
+#define DA_DATA			iobase[4] + 0				// Badr4 + 0
+#define	DA_FIFOCLR	iobase[4] + 2				// Badr4 + 2
 
 // global variables
-float freq;       // frequency
-float data[N];    // waveform array
-int condition = 0;    //convars condition
+float freq;           // frequency
+float data[N];        // waveform array
+int condition = 0;    // convars condition
+void *hdl;            // pci attach pointer
+uintptr_t iobase[6];  // I/O addresses
+int badr[5];          // base addresses
+int exit = 0;         // check if SIGINT is sent
+
 // thread variables
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
 pthread_cond_t aread_cond = PTHREAD_COND_INITIALIZER; //aread convar
 pthread_t thread[NUM_THREADS];
 pthread_attr_t attr;
-void *hdl;
-uintptr_t iobase[6];
-int badr[5];
 
 // waveform generators
 void sin_generator(float amp, float mean, float freq);
@@ -64,7 +66,7 @@ void sawtooth_generator(float amp, float mean, float freq);
 // command line i/o functions
 void print_help();              // bring up command menu
 int dread_waveform_config();    // read waveform config from command line
-void INThandler(int sig);
+void INThandler(int sig);       // catch SIGINT
 
 // analog functions
 void setup_peripheral();        // setup peripherals
@@ -77,6 +79,7 @@ void *print_wave();             // output to DAC
 
 int main(void){
   int rc, i;
+
   pthread_mutex_init(&aread_mutex, NULL);
 
   // normalise data array
@@ -107,10 +110,29 @@ int main(void){
     exit(-1);
   }
 
-  while(1){
+  while(!exit){
     // catch kill sig
     signal(SIGINT, INThandler);
   }
+
+  // initiate exit sequence
+  printf("Exiting...\n");
+  // close all threads
+  for (i=0; i<NUM_THREADS; i++){
+    pthread_cancel(thread[i]);
+  }
+
+  //detach pci and reset DAC
+  out16(DA_CTLREG,(short)0x0a23);
+  out16(DA_FIFOCLR,(short) 0);
+  out16(DA_DATA, 0x8fff);						// Mid range - Unipolar
+
+  out16(DA_CTLREG,(short)0x0a43);
+  out16(DA_FIFOCLR,(short) 0);
+  out16(DA_DATA, 0x8fff);
+  pci_detach_device(hdl);
+
+  printf("\n\nExit Success!\n");
 
   return 0;
 }
@@ -310,30 +332,7 @@ void *read_command(){
 }
 
 void INThandler(int sig){
-  char c;
-  int i;
-
-  printf("Exiting...\n");
-  // close all threads
-  for (i=0;i<NUM_THREADS;i++){
-    pthread_cancel(thread[i]);
-  }
-
-  //detach pci and reset DAC
-  out16(DA_CTLREG,(short)0x0a23);
-  out16(DA_FIFOCLR,(short) 0);
-  out16(DA_DATA, 0x8fff);						// Mid range - Unipolar
-
-  out16(DA_CTLREG,(short)0x0a43);
-  out16(DA_FIFOCLR,(short) 0);
-  out16(DA_DATA, 0x8fff);
-
-  printf("\n\nExit Demo Program\n");
-  pci_detach_device(hdl);
-
-  // send kill sig
-  signal(sig, SIGINT);
-  exit(0);
+  exit = 1;
 }
 
 void setup_peripheral(){
@@ -400,7 +399,7 @@ void setup_peripheral(){
   // x x 0 0 | 1  0  0 1  | 0x 7   0 | Diff - 8 channels
   // SW trig |Diff-Uni 5v| scan 0-7| Single - 16 channels
   out16(MUXCHAN,0x0D00);
-  
+
   printf("Initialising...\n\n");
 }
 
