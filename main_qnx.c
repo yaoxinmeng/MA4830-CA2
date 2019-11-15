@@ -51,8 +51,8 @@ int kill_sig = 0;     // check if SIGINT is sent
 // thread variables
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
 pthread_cond_t aread_cond = PTHREAD_COND_INITIALIZER; //aread convar
-pthread_t thread[NUM_THREADS];
-pthread_attr_t attr;
+pthread_t thread[NUM_THREADS]; //pthread_t object used to store thread ID
+pthread_attr_t attr; //pthread_attr_t structure
 
 // waveform generators
 void sin_generator(float amp, float mean, float freq);
@@ -77,6 +77,7 @@ void *print_wave();             // output to DAC
 int main(void){
   int rc, i;
 
+  //creating aread_mutex
   pthread_mutex_init(&aread_mutex, NULL);
 
   // normalise data array
@@ -88,9 +89,10 @@ int main(void){
   setup_peripheral();
 
   // initialise threads
-  pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+  pthread_attr_init(&attr); //initialize a thread attribute object
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); //set thread detach state attribute; PTHREAD_CREATE_JOINABLE -> Joinable thread
 
+  // Creating a thread for read command, rc
   rc = pthread_create(&thread[0], &attr, &read_command, NULL);
   if(rc){
     printf("ERROR - return code from pthread_create() is %d\n", rc);
@@ -108,8 +110,9 @@ int main(void){
   }
 
   // catch kill sig
-  signal(SIGINT, INThandler);
-  while(!kill_sig){;}
+  while(!kill_sig){
+    signal(SIGINT, INThandler); //function of signal.h header; sets signal handler
+  }
 
   // initiate exit sequence
   printf("Exiting...\n");
@@ -133,10 +136,12 @@ int main(void){
 }
 
 void sin_generator(float amp, float mean, float freq){
+  /* This function generates sine waves
+  Parameters: amp - amplitude, mean - mean value, freq - frequency */
   int i;
   float delta, dummy;
 
-  delta=(2.0*freq*PI)/N;					// increment
+  delta=(2.0*freq*PI)/N;					// increment, (2pi*f)/N
   for(i=0;i<N;i++) {
     dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000 ;
     data[i]= (unsigned) dummy + mean;			// add offset +  scale
@@ -144,10 +149,12 @@ void sin_generator(float amp, float mean, float freq){
 }
 
 void square_generator(float amp, float mean, float freq){
+  /* This function generates a square wave
+  Parameters: amp - amplitude, mean - mean value, freq - frequency */
 	int i;
   float delta, dummy;
 
-	delta=(2.0*freq*PI)/N;					// increment
+	delta=(2.0*freq*PI)/N;					// increment, (2pi*f)/N
 	for(i=0;i<N;i++) {
 		dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
 		if (dummy > 0x8000)
@@ -158,12 +165,14 @@ void square_generator(float amp, float mean, float freq){
 }
 
 void triangle_generator(float amp, float mean, float freq){
+  /* This function generates triangular wave
+  Parameters: amp - amplitude, mean - mean value, freq - frequency */
   float check[N], incre, dummy, delta;
   int i;
 
   check[0] = 0x0000;
   data[0] = 0x8000;
-  delta=(2.0*freq*PI)/200.0;					// increment
+  delta=(2.0*freq*PI)/200.0;					// increment, (2pi*f)/N
   incre=(amp*0x8000)/(N/(2*freq));
 
   for(i=1;i<N;i++) {
@@ -181,6 +190,8 @@ void triangle_generator(float amp, float mean, float freq){
 }
 
 void sawtooth_generator(float amp, float mean, float freq){
+  /* This function generates sawtooth wave
+  Parameters: amp - amplitude, mean - mean value, freq - frequency */
   float data1[N], check[N], delta, dummy, incre;
   int i;
 
@@ -212,6 +223,7 @@ void sawtooth_generator(float amp, float mean, float freq){
 }
 
 void print_help(){
+  /* This functions prints out the help menu */
   printf("\n************************************************************\n");
   printf("WAVEFORM GENERATOR\n");
   printf("\t-d Configure Waveform from Keyboard\n");
@@ -221,6 +233,7 @@ void print_help(){
 }
 
 int dread_waveform_config(){
+  /* This function configures waveform with digital input */
   float amp, mean, freq, input;
   char string[BUFFER];
   int success = 0;
