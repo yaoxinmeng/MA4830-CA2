@@ -108,9 +108,8 @@ int main(void){
   }
 
   // catch kill sig
-  while(!kill_sig){
-    signal(SIGINT, INThandler);
-  }
+  signal(SIGINT, INThandler);
+  while(!kill_sig){;}
 
   // initiate exit sequence
   printf("Exiting...\n");
@@ -123,7 +122,6 @@ int main(void){
   out16(DA_CTLREG,(short)0x0a23);
   out16(DA_FIFOCLR,(short) 0);
   out16(DA_DATA, 0x8fff);						// Mid range - Unipolar
-
   out16(DA_CTLREG,(short)0x0a43);
   out16(DA_FIFOCLR,(short) 0);
   out16(DA_DATA, 0x8fff);
@@ -328,23 +326,23 @@ void INThandler(int sig){
 
 void setup_peripheral(){
   struct pci_dev_info info;
-
   uintptr_t dio_in;
-
   unsigned int i;
 
   printf("\fSetting up connection to PCI-DAS 1602...\n\n");
 
+  // connect to PCI server
   memset(&info,0,sizeof(info));
   if(pci_attach(0)<0) {
     perror("pci_attach");
     exit(EXIT_FAILURE);
   }
 
-  // Vendor and Device ID
+  // Set Vendor and Device ID
   info.VendorId=0x1307;
   info.DeviceId=0x01;
 
+  // Attach device driver
   if ((hdl=pci_attach_device(0, PCI_SHARE|PCI_INIT_ALL, 0, &info))==0) {
     perror("pci_attach_device");
     exit(EXIT_FAILURE);
