@@ -229,6 +229,7 @@ void print_help(){
   printf("\t-d Configure Waveform from Keyboard\n");
   printf("\t-a Configure Waveform from Analog Board\n");
   printf("\t-q Quit\n");
+  printf("\t-w Write\n");
   printf("************************************************************\n");
 }
 
