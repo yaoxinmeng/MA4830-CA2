@@ -325,9 +325,8 @@ void *read_command(){
             break;
           case 'w':   //write to file
             pthread_mutex_lock(&aread_mutex);
-            condition = 1;
-            pthread_cond_signal(&aread_cond);
-            pthread_mutex_lock(&aread_mutex);
+            write();
+            pthread_mutex_unlock(&aread_mutex);
             break;
           default:    // not any of the letters above
             printf("Error - \"%s\" is not recognised as a command!\n", input);
@@ -477,26 +476,20 @@ void *aread_waveform_config(){
 }
 
 void write(){
-  while(1){
-    pthread_mutex_lock(&aread_mutex);
-    while(condition==0) pthread_cond_wait(&aread_cond, &aread_mutex);
-    FILE *fp;
-    int i;
+  FILE *fp;
+  int i;
 
-    if ((fp = fopen("output.txt","w+")) == NULL) {
-      perror("Cannot open"); exit(1);
-    }
+  if ((fp = fopen("output.txt","w+")) == NULL) {
+    perror("Cannot open"); exit(1);
+  }
 
-    for(i=0; i<200; i++){
-      if (fputs(str[i],fp)==EOF) {
-        printf("Cannot write"); exit(1);
-      }
-      else {
-        fprintf(fp,"%d/n", data[i]);
-      }
-    fclose(fp);
-    exit(0);
+  for(i=0; i<200; i++){
+    if (fputs(str[i],fp)==EOF) {
+      printf("Cannot write"); exit(1);
     }
-    pthread_mutex_unlock(&aread_mutex);
+    else {
+      fprintf(fp,"%d/n", data[i]);
+    }
+  fclose(fp);
   }
 }
