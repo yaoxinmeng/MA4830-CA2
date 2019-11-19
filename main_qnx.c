@@ -55,7 +55,7 @@ int mode;
 // thread variables
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
 pthread_cond_t aread_cond = PTHREAD_COND_INITIALIZER; //aread convar
-pthread_t thread[NUM_THREADS];
+pthread_t thread[NUM_THREADS]; //array containing number of threads
 pthread_attr_t attr;
 
 // waveform generators
@@ -370,7 +370,7 @@ void setup_peripheral(){
 
   out16(AD_FIFOCLR,0); 						// clear ADC buffer
 
-out8(DIO_CTLREG,0x90);					// Port A : Input,  Port B : Output,  Port C (upper | lower) : Output | Output
+  out8(DIO_CTLREG,0x90);					// Port A : Input,  Port B : Output,  Port C (upper | lower) : Output | Output
 
   out16(MUXCHAN,0x0D00);
 
@@ -390,16 +390,17 @@ void *print_wave(){
 }
 
 void *aread_waveform_config(){
+  /* This function displays waveform into the oscilloscope */
   uint16_t adc_in1, adc_in2;
   unsigned int i, count,mode;
   unsigned short chan;
 
   while(1){
-    pthread_mutex_lock(&aread_mutex);
-    while(condition == 0) pthread_cond_wait(&aread_cond, &aread_mutex);
-    count=0x00;
-    while(count <0x02) {
-      chan = ((count & 0x0f)<<4) | (0x0f & count);
+    pthread_mutex_lock(&aread_mutex); //lock the mutex
+    while(condition == 0) pthread_cond_wait(&aread_cond, &aread_mutex); //wait for signal
+    count=0x00; //hex counter
+    while(count < 0x02) {
+      chan = ((count & 0x0f)<<4) | (0x0f & count); //mask bit
       out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
       delay(1);				 							// allow mux to settle
       out16(AD_DATA,0); 						// start ADC
@@ -415,13 +416,11 @@ void *aread_waveform_config(){
         }
         else if(mode <= 3){       // A/D 2 controls freq
           adc_in2 = in16(AD_DATA);
-          freq = adc_in2/655.35
-;
+          freq = adc_in2/655.35;
         }
         else{                     // A/D 2 controls mean
           adc_in2 = in16(AD_DATA);
-          mean = adc_in2/(65530.5) + 0.5
-;
+          mean = adc_in2/(65530.5) + 0.5;
         }
       }
 
