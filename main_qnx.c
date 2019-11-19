@@ -296,6 +296,7 @@ void *read_command(){
             pthread_mutex_lock(&aread_mutex);
             writeFile();
             pthread_mutex_unlock(&aread_mutex);
+            printf("Mode Cleared. Please enter input.");
             break;
           case 'q':   // quit
             // send kill sig
@@ -472,15 +473,19 @@ void writeFile(){
   fprintf(fp, "Configurations\n");
   switch (mode){
     case 0:
+    case 4:
       fprintf(fp, "Wave Type: sine\n");
       break;
     case 1:
+    case 5:
       fprintf(fp, "Wave Type: square\n");
       break;
     case 2:
+    case 6:
       fprintf(fp, "Wave Type: triangle\n");
       break;
     case 3:
+    case 7:
       fprintf(fp, "Wave Type: sawtooth\n");
       break;
     default:
