@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <signal.h>
 
-#define N 200             // number of points in waveform
+#define N 100             // number of points in waveform
 #define BUFFER 50         // length of input string buffer
 #define PI 3.14159265359  // value of pi
 #define NUM_THREADS 3     // number of threads created
@@ -216,7 +216,7 @@ int dread_waveform_config(){
     if(scanf("%f", &input) == 1 && input >= -0.5 && input <= 0.5){   // check if input is of float type
       mean = input;
 
-      printf("Enter the frequency of waveform (1 to 5Hz): ");
+      printf("Enter the frequency of waveform (0.1 to 5Hz): ");
       fflush(stdout);
       if(scanf("%f", &input) == 1 && input >= 1 && input <= 5){   // check if input is of float type
         freq = input;
@@ -290,6 +290,7 @@ void *read_command(){
             pthread_mutex_unlock(&aread_mutex);
             break;
           case 'w':   //write to file
+            condition = 0;
             pthread_mutex_lock(&aread_mutex);
             writeFile();
             pthread_mutex_unlock(&aread_mutex);
@@ -417,7 +418,7 @@ void *aread_waveform_config(){
         }
         else if(mode <= 3){       // A/D 2 controls freq
           adc_in2 = in16(AD_DATA);
-          freq = adc_in2/655.35 + 1;  // min freq = 1 Hz
+          freq = adc_in2/6553.5 + 0.1;  // min freq = 0.1 Hz
         }
         else{                     // A/D 2 controls mean
           adc_in2 = in16(AD_DATA);
