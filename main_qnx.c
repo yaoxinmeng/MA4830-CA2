@@ -68,7 +68,7 @@ void sawtooth_generator();
 void print_help();              // bring up command menu
 int dread_waveform_config();    // read waveform config from command line
 void INThandler(int sig);       // catch SIGINT
-void write();                   // write to file
+void writeFile();                   // write to file
 
 // analog functions
 void setup_peripheral();        // setup peripherals
@@ -216,9 +216,9 @@ int dread_waveform_config(){
     if(scanf("%f", &input) == 1 && input >= -0.5 && input <= 0.5){   // check if input is of float type
       mean = input;
 
-      printf("Enter the frequency of waveform (1 to 100Hz): ");
+      printf("Enter the frequency of waveform (1 to 5Hz): ");
       fflush(stdout);
-      if(scanf("%f", &input) == 1 && input >= 1 && input <= 100){   // check if input is of float type
+      if(scanf("%f", &input) == 1 && input >= 1 && input <= 5){   // check if input is of float type
         freq = input;
 
         printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
@@ -226,18 +226,22 @@ int dread_waveform_config(){
         scanf("%s", string);
 
         if (strcmp(string, "sine") == 0){
+          mode = 0;
           sin_generator();
           success = 1;
         }
         else if (strcmp(string, "square") == 0){
+          mode = 1;
           square_generator();
           success = 1;
         }
         else if (strcmp(string, "triangle") == 0){
+          mode = 2;
           triangle_generator();
           success = 1;
         }
         else if (strcmp(string, "sawtooth") == 0){
+          mode = 3;
           sawtooth_generator();
           success = 1;
         }
@@ -246,15 +250,15 @@ int dread_waveform_config(){
         }
       }
       else{
-        printf("Error - unrecognised input!\n");
+        printf("Error - unrecognised frequency!\n");
       }
     }
     else{
-      printf("Error - unrecognised input!\n");
+      printf("Error - unrecognised mean!\n");
     }
   }
   else{
-    printf("Error - unrecognised input!\n");
+    printf("Error - unrecognised amplitude!\n");
   }
 
   fflush(stdout);
@@ -287,7 +291,7 @@ void *read_command(){
             break;
           case 'w':   //write to file
             pthread_mutex_lock(&aread_mutex);
-            write();
+            writeFile();
             pthread_mutex_unlock(&aread_mutex);
             break;
           case 'q':   // quit
@@ -452,7 +456,7 @@ void *aread_waveform_config(){
   }
 }
 
-void write(){
+void writeFile(){
   FILE *fp;
   int i;
 
@@ -484,8 +488,9 @@ void write(){
   fprintf(fp, "Mean: %.2f\n", mean);
 
   // print data
+  fprintf(fp, "\nData points\n");
   for(i=0; i<N; i++)
-    fprintf(fp, "Data[%d]: %5.2f\n", i, data[i]);
+    fprintf(fp, "Data[%d]: %8d\n", i, data[i]);
 
   fclose(fp);
 }
