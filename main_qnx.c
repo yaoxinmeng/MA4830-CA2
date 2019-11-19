@@ -292,6 +292,7 @@ void *read_command(){
             }
             break;
           case 'w':   //write to file
+            condition = 0;
             pthread_mutex_lock(&aread_mutex);
             writeFile();
             pthread_mutex_unlock(&aread_mutex);
@@ -420,7 +421,7 @@ void *aread_waveform_config(){
         }
         else if(mode <= 3){       // A/D 2 controls freq
           adc_in2 = in16(AD_DATA);
-          freq = adc_in2/655.35 + 1;  // min freq = 1 Hz
+          freq = adc_in2/655.35 + 0.1;  // min freq = 0.1 Hz
         }
         else{                     // A/D 2 controls mean
           adc_in2 = in16(AD_DATA);
