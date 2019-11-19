@@ -55,7 +55,7 @@ int mode;
 // thread variables
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
 pthread_cond_t aread_cond = PTHREAD_COND_INITIALIZER; //aread convar
-pthread_t thread[NUM_THREADS];
+pthread_t thread[NUM_THREADS]; //array containing number of threads
 pthread_attr_t attr;
 
 // waveform generators
@@ -284,16 +284,19 @@ void *read_command(){
             dread_waveform_config();
             break;
           case 'a':   // analog confiq
-            pthread_mutex_lock(&aread_mutex);
-            condition = 1;
-            pthread_cond_signal(&aread_cond);
-            pthread_mutex_unlock(&aread_mutex);
+            if (condition == 0){
+              pthread_mutex_lock(&aread_mutex);
+              condition = 1;
+              pthread_cond_signal(&aread_cond);
+              pthread_mutex_unlock(&aread_mutex);
+            }
             break;
           case 'w':   //write to file
             condition = 0;
             pthread_mutex_lock(&aread_mutex);
             writeFile();
             pthread_mutex_unlock(&aread_mutex);
+            printf("Mode Cleared. Please enter input.");
             break;
           case 'q':   // quit
             // send kill sig
@@ -393,22 +396,23 @@ void *print_wave(){
 }
 
 void *aread_waveform_config(){
+  /* This function displays waveform into the oscilloscope */
   uint16_t adc_in1, adc_in2;
-  unsigned int i, count,mode;
+  unsigned int i, count;
   unsigned short chan;
 
   while(1){
-    pthread_mutex_lock(&aread_mutex);
-    while(condition == 0) pthread_cond_wait(&aread_cond, &aread_mutex);
-    count=0x00;
-    while(count <0x02) {
-      chan = ((count & 0x0f)<<4) | (0x0f & count);
+    pthread_mutex_lock(&aread_mutex); //lock the mutex
+    while(condition == 0) pthread_cond_wait(&aread_cond, &aread_mutex); //wait for signal
+    count=0x00; //hex counter
+    while(count < 0x02) {
+      chan = ((count & 0x0f)<<4) | (0x0f & count); //mask bit
       out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
       delay(1);				 							// allow mux to settle
       out16(AD_DATA,0); 						// start ADC
       while(!(in16(MUXCHAN) & 0x4000));
 
-	    mode=in8(DIO_PORTA)-240; 				// Read Port A
+	    mode = in8(DIO_PORTA)-240; 				// Read Port A
 
       if(count == 0x00)
         adc_in1=in16(AD_DATA);
