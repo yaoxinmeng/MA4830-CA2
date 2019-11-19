@@ -284,10 +284,12 @@ void *read_command(){
             dread_waveform_config();
             break;
           case 'a':   // analog confiq
-            pthread_mutex_lock(&aread_mutex);
-            condition = 1;
-            pthread_cond_signal(&aread_cond);
-            pthread_mutex_unlock(&aread_mutex);
+            if (condition == 0){
+              pthread_mutex_lock(&aread_mutex);
+              condition = 1;
+              pthread_cond_signal(&aread_cond);
+              pthread_mutex_unlock(&aread_mutex);
+            }
             break;
           case 'w':   //write to file
             pthread_mutex_lock(&aread_mutex);
