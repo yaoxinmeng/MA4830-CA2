@@ -68,7 +68,7 @@ void sawtooth_generator();
 void print_help();              // bring up command menu
 int dread_waveform_config();    // read waveform config from command line
 void INThandler(int sig);       // catch SIGINT
-void write();                   // write to file
+void writeFile();                   // write to file
 
 // analog functions
 void setup_peripheral();        // setup peripherals
@@ -144,7 +144,7 @@ void sin_generator(){
 
   delta=(2.0*PI)/N;					// increment
   for(i=0; i<N; i++) {
-    dummy= (amp/2*(sinf((float)(i*delta))) + mean) * 0x8000 ;
+    dummy = (amp/2*(sinf((float)(i*delta))) + 1 + mean) * 0x8000 ;
     data[i]= (unsigned) dummy;			// add offset +  scale
   }
 }
@@ -154,27 +154,27 @@ void square_generator(){
   float delta, dummy;
 
 
-	 delta=(2.0*3.142)/200.0;					// increment
+	delta=(2.0*3.142)/200.0;					// increment
   for(i=0; i<N; i++) {
-    dummy= (amp/2*(sinf((float)(i*delta))) + 1.0) * 0x8000;
+    dummy = (amp/2*(sinf((float)(i*delta))) + 1.0) * 0x8000;
   if (dummy > 0x8000)
-    data[i]= (amp/2+mean)*0x8000;			// add offset +  scale
+    data[i]= (amp/2 + mean)*0x8000;			// add offset +  scale
   else
-    data[i]= (mean-amp/2)*0x8000;
+    data[i]= (mean - amp/2)*0x8000;
   }
 }
 
 void triangle_generator(){
-  float  incre;
+  float incre;
   int i;
 
-  incre=amp/(2*100) * 0x8000;
-  data[0]=0x8000*mean+50*incre;
+  incre = amp/(N/2) * 0x8000;
+  data[0] = 0x8000*(mean+1) + (N/4)*incre;   // start at max point
   for(i=1; i<N; i++) {
-    if(i<=100)
-      data[i]=data[i-1]-incre;
+    if(i <= N/2)
+      data[i] = data[i-1] - incre;
     else
-      data[i]=data[i-1]+incre;
+      data[i] = data[i-1] + incre;
   }
 }
 
@@ -182,10 +182,10 @@ void sawtooth_generator(){
   float incre;
   int i;
 
-  incre=amp/(2*100) * 0x8000;
-  data[0]=0x8000*mean-(100*incre);
+  incre = amp/N * 0x8000;
+  data[0] = 0x8000*(mean+1) - (N/2)*incre;  // start at max point
   for(i=1; i<N; i++) {
-    data[i]=data[i-1]+incre;
+    data[i] = data[i-1] + incre;
   }
 }
 
@@ -206,38 +206,42 @@ int dread_waveform_config(){
   char string[BUFFER];
   int success = 0;
 
-  printf("\nEnter the amplitude of waveform: (0 to 100)");
+  printf("\nEnter the amplitude of waveform (0 to 1): ");
   fflush(stdout);
-  if(scanf("%f", &input) == 1){   // check if input is of float type
+  if(scanf("%f", &input) == 1 && input <= 1 && input >= 0){   // check if input is of float type
     amp = input;
 
-    printf("Enter the mean value of waveform: ");
+    printf("Enter the mean value of waveform (-0.5 to 0.5): ");
     fflush(stdout);
-    if(scanf("%f", &input) == 1){   // check if input is of float type
+    if(scanf("%f", &input) == 1 && input >= -0.5 && input <= 0.5){   // check if input is of float type
       mean = input;
 
-      printf("Enter the frequency of waveform: ");
+      printf("Enter the frequency of waveform (1 to 5Hz): ");
       fflush(stdout);
-      if(scanf("%f", &input) == 1){   // check if input is of float type
-        freq = 200*1/input;
+      if(scanf("%f", &input) == 1 && input >= 1 && input <= 5){   // check if input is of float type
+        freq = input;
 
         printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
         fflush(stdout);
         scanf("%s", string);
 
         if (strcmp(string, "sine") == 0){
+          mode = 0;
           sin_generator();
           success = 1;
         }
         else if (strcmp(string, "square") == 0){
+          mode = 1;
           square_generator();
           success = 1;
         }
         else if (strcmp(string, "triangle") == 0){
+          mode = 2;
           triangle_generator();
           success = 1;
         }
         else if (strcmp(string, "sawtooth") == 0){
+          mode = 3;
           sawtooth_generator();
           success = 1;
         }
@@ -246,15 +250,15 @@ int dread_waveform_config(){
         }
       }
       else{
-        printf("Error - unrecognised input!\n");
+        printf("Error - unrecognised frequency!\n");
       }
     }
     else{
-      printf("Error - unrecognised input!\n");
+      printf("Error - unrecognised mean!\n");
     }
   }
   else{
-    printf("Error - unrecognised input!\n");
+    printf("Error - unrecognised amplitude!\n");
   }
 
   fflush(stdout);
@@ -287,7 +291,7 @@ void *read_command(){
             break;
           case 'w':   //write to file
             pthread_mutex_lock(&aread_mutex);
-            write();
+            writeFile();
             pthread_mutex_unlock(&aread_mutex);
             break;
           case 'q':   // quit
@@ -369,9 +373,11 @@ void setup_peripheral(){
   out16(AUTOCAL,0x007f);					// sets automatic calibration : default
 
   out16(AD_FIFOCLR,0); 						// clear ADC buffer
+<<<<<<< HEAD
 
+=======
   out8(DIO_CTLREG,0x90);					// Port A : Input,  Port B : Output,  Port C (upper | lower) : Output | Output
-
+>>>>>>> 8501ac28385802ee92186752075ebc4b6a501ad6
   out16(MUXCHAN,0x0D00);
 
   printf("Initialising...\n\n");
@@ -380,11 +386,11 @@ void setup_peripheral(){
 void *print_wave(){
   int i;
   while(1){
-    for(i=0;i<N;i++) {
+    for(i=0; i<N; i++) {
     	out16(DA_CTLREG,0x0a23);			// DA Enable, #0, #1, SW 5V unipolar		2/6
       out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
       out16(DA_DATA,(short) data[i]);
-      delay(freq);
+      delay(1000/(N * freq));
     }
   }
 }
@@ -416,11 +422,15 @@ void *aread_waveform_config(){
         }
         else if(mode <= 3){       // A/D 2 controls freq
           adc_in2 = in16(AD_DATA);
-          freq = adc_in2/655.35;
+<<<<<<< HEAD
+
+=======
+          freq = adc_in2/655.35 + 1;  // min freq = 1 Hz
         }
         else{                     // A/D 2 controls mean
           adc_in2 = in16(AD_DATA);
-          mean = adc_in2/(65530.5) + 0.5;
+          mean = adc_in2/65530.5 - 0.5;   // mean value between -0.5 and 0.5
+>>>>>>> 8501ac28385802ee92186752075ebc4b6a501ad6
         }
       }
 
@@ -455,7 +465,7 @@ void *aread_waveform_config(){
   }
 }
 
-void write(){
+void writeFile(){
   FILE *fp;
   int i;
 
@@ -465,14 +475,31 @@ void write(){
 
   // print configurations
   fprintf(fp, "Configurations\n");
-  fprintf(fp, "Wave Type: \n");
-  fprintf(fp, "Amplitude: \n");
-  fprintf(fp, "Frequency: \n");
-  fprintf(fp, "Mean: \n");
+  switch (mode){
+    case 0:
+      fprintf(fp, "Wave Type: sine\n");
+      break;
+    case 1:
+      fprintf(fp, "Wave Type: square\n");
+      break;
+    case 2:
+      fprintf(fp, "Wave Type: triangle\n");
+      break;
+    case 3:
+      fprintf(fp, "Wave Type: sawtooth\n");
+      break;
+    default:
+      fprintf(fp, "Wave Type: ERROR\n");
+      break;
+  }
+  fprintf(fp, "Amplitude: %.2f\n", amp);
+  fprintf(fp, "Frequency: %.2f\n", freq);
+  fprintf(fp, "Mean: %.2f\n", mean);
 
   // print data
+  fprintf(fp, "\nData points\n");
   for(i=0; i<N; i++)
-    fprintf(fp, "Data[%d]: %5.2f\n", i, data[i]);
+    fprintf(fp, "Data[%d]: %8d\n", i, data[i]);
 
   fclose(fp);
 }
