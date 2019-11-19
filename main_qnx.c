@@ -41,29 +41,34 @@
 #define	DA_FIFOCLR	iobase[4] + 2				// Badr4 + 2
 
 // global variables
-float data[N];        // waveform array
 int condition = 0;    // convars condition
 void *hdl;            // pci attach pointer
 uintptr_t iobase[6];  // I/O addresses
 int badr[5];          // base addresses
 int kill_sig = 0;     // check if SIGINT is sent
 
+// waveform-related vars
+float data[N];        // waveform array
+float freq, mean, amp;
+int mode;
+
 // thread variables
 pthread_mutex_t aread_mutex = PTHREAD_MUTEX_INITIALIZER; //aread mutex
 pthread_cond_t aread_cond = PTHREAD_COND_INITIALIZER; //aread convar
-pthread_t thread[NUM_THREADS]; //pthread_t object used to store thread ID
-pthread_attr_t attr; //pthread_attr_t structure
+pthread_t thread[NUM_THREADS];
+pthread_attr_t attr;
 
 // waveform generators
-void sin_generator(float amp, float mean, float freq);
-void square_generator(float amp, float mean, float freq);
-void triangle_generator(float amp, float mean, float freq);
-void sawtooth_generator(float amp, float mean, float freq);
+void sin_generator();
+void square_generator();
+void triangle_generator();
+void sawtooth_generator();
 
 // command line i/o functions
 void print_help();              // bring up command menu
 int dread_waveform_config();    // read waveform config from command line
 void INThandler(int sig);       // catch SIGINT
+void write();                   // write to file
 
 // analog functions
 void setup_peripheral();        // setup peripherals
@@ -77,7 +82,6 @@ void *print_wave();             // output to DAC
 int main(void){
   int rc, i;
 
-  //creating aread_mutex
   pthread_mutex_init(&aread_mutex, NULL);
 
   // normalise data array
@@ -89,10 +93,9 @@ int main(void){
   setup_peripheral();
 
   // initialise threads
-  pthread_attr_init(&attr); //initialize a thread attribute object
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); //set thread detach state attribute; PTHREAD_CREATE_JOINABLE -> Joinable thread
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-  // Creating a thread for read command, rc
   rc = pthread_create(&thread[0], &attr, &read_command, NULL);
   if(rc){
     printf("ERROR - return code from pthread_create() is %d\n", rc);
@@ -110,9 +113,8 @@ int main(void){
   }
 
   // catch kill sig
-  while(!kill_sig){
-    signal(SIGINT, INThandler); //function of signal.h header; sets signal handler
-  }
+  signal(SIGINT, INThandler);
+  while(!kill_sig);
 
   // initiate exit sequence
   printf("Exiting...\n");
@@ -125,6 +127,7 @@ int main(void){
   out16(DA_CTLREG,(short)0x0a23);
   out16(DA_FIFOCLR,(short) 0);
   out16(DA_DATA, 0x8fff);						// Mid range - Unipolar
+
   out16(DA_CTLREG,(short)0x0a43);
   out16(DA_FIFOCLR,(short) 0);
   out16(DA_DATA, 0x8fff);
@@ -135,90 +138,54 @@ int main(void){
   return 0;
 }
 
-void sin_generator(float amp, float mean, float freq){
-  /* This function generates sine waves
-  Parameters: amp - amplitude, mean - mean value, freq - frequency */
+void sin_generator(){
   int i;
   float delta, dummy;
 
-  delta=(2.0*freq*PI)/N;					// increment, (2pi*f)/N
-  for(i=0;i<N;i++) {
-    dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000 ;
-    data[i]= (unsigned) dummy + mean;			// add offset +  scale
+  delta=(2.0*PI)/N;					// increment
+  for(i=0; i<N; i++) {
+    dummy= (amp/2*(sinf((float)(i*delta))) + mean) * 0x8000 ;
+    data[i]= (unsigned) dummy;			// add offset +  scale
   }
 }
 
-void square_generator(float amp, float mean, float freq){
-  /* This function generates a square wave
-  Parameters: amp - amplitude, mean - mean value, freq - frequency */
-	int i;
+void square_generator(){
+  int i;
   float delta, dummy;
 
-	delta=(2.0*freq*PI)/N;					// increment, (2pi*f)/N
-	for(i=0;i<N;i++) {
-		dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
-		if (dummy > 0x8000)
-			data[i]= (amp+1)*0x8000 + mean;			// add offset +  scale
-		else
-			data[i]= (1-amp)*0x8000 + mean;
-	}
-}
 
-void triangle_generator(float amp, float mean, float freq){
-  /* This function generates triangular wave
-  Parameters: amp - amplitude, mean - mean value, freq - frequency */
-  float check[N], incre, dummy, delta;
-  int i;
-
-  check[0] = 0x0000;
-  data[0] = 0x8000;
-  delta=(2.0*freq*PI)/200.0;					// increment, (2pi*f)/N
-  incre=(amp*0x8000)/(N/(2*freq));
-
-  for(i=1;i<N;i++) {
-    dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
-    if (dummy > 0x8000)
-      check[i]= (amp+1)*0x8000;			// add offset +  scale
-    else
-      check[i]= (1-amp)*0x8000;
-
-    if ( check[i]>0x8000)
-      data[i] = data[i-1]+ incre + mean;
-    if ( check[i]<0x8000)
-      data[i] = data[i-1]- incre + mean;
+	 delta=(2.0*3.142)/200.0;					// increment
+  for(i=0; i<N; i++) {
+    dummy= (amp/2*(sinf((float)(i*delta))) + 1.0) * 0x8000;
+  if (dummy > 0x8000)
+    data[i]= (amp/2+mean)*0x8000;			// add offset +  scale
+  else
+    data[i]= (mean-amp/2)*0x8000;
   }
 }
 
-void sawtooth_generator(float amp, float mean, float freq){
-  /* This function generates sawtooth wave
-  Parameters: amp - amplitude, mean - mean value, freq - frequency */
-  float data1[N], check[N], delta, dummy, incre;
+void triangle_generator(){
+  float  incre;
   int i;
 
-  data1[0]=0x8000;
-  data[0]=0x8000;
-  check[0]=0x0000;
-  delta=(2.0*freq*PI)/200.0;					// increment
-  incre=(amp*0x8000)/(200/(1*freq));
-
-  for(i=1;i<N;i++) {
-    dummy= (amp*(sinf((float)(i*delta))) + 1.0) * 0x8000;
-    if (dummy > 0x8000)
-      check[i]= (amp+1)*0x8000;			// add offset +  scale
+  incre=amp/(2*100) * 0x8000;
+  data[0]=0x8000*mean+50*incre;
+  for(i=1; i<N; i++) {
+    if(i<=100)
+      data[i]=data[i-1]-incre;
     else
-      check[i]= (1-amp)*0x8000;
-
-    if ( check[i]>0x8000)
-      data1[i] = data1[i-1]+ 1;
-    if ( check[i]<0x8000)
-      data1[i] = data1[i-1]- 1;
+      data[i]=data[i-1]+incre;
   }
+}
 
-  for(i=1;i<N;i++) {
-    if (data1[i] == 0x8000)
-      data[i] =  0x8000;
-    else
-      data[i] = data[i-1] +incre;
+void sawtooth_generator(){
+  float incre;
+  int i;
+
+  incre=amp/(2*100) * 0x8000;
+  data[0]=0x8000*mean-(100*incre);
+  for(i=1; i<N; i++) {
+    data[i]=data[i-1]+incre;
   }
 }
 
@@ -228,18 +195,18 @@ void print_help(){
   printf("WAVEFORM GENERATOR\n");
   printf("\t-d Configure Waveform from Keyboard\n");
   printf("\t-a Configure Waveform from Analog Board\n");
-  printf("\t-q Quit\n");
   printf("\t-w Write\n");
+  printf("\t-q Quit\n");
   printf("************************************************************\n");
 }
 
 int dread_waveform_config(){
   /* This function configures waveform with digital input */
-  float amp, mean, freq, input;
+  float input;
   char string[BUFFER];
   int success = 0;
 
-  printf("\nEnter the amplitude of waveform: ");
+  printf("\nEnter the amplitude of waveform: (0 to 100)");
   fflush(stdout);
   if(scanf("%f", &input) == 1){   // check if input is of float type
     amp = input;
@@ -252,26 +219,26 @@ int dread_waveform_config(){
       printf("Enter the frequency of waveform: ");
       fflush(stdout);
       if(scanf("%f", &input) == 1){   // check if input is of float type
-        freq = input;
+        freq = 200*1/input;
 
         printf("Enter the type of waveform (sine, square, triangle or sawtooth): ");
         fflush(stdout);
         scanf("%s", string);
 
         if (strcmp(string, "sine") == 0){
-          sin_generator(amp, mean, freq);
+          sin_generator();
           success = 1;
         }
         else if (strcmp(string, "square") == 0){
-          square_generator(amp, mean, freq);
+          square_generator();
           success = 1;
         }
         else if (strcmp(string, "triangle") == 0){
-          triangle_generator(amp, mean, freq);
+          triangle_generator();
           success = 1;
         }
         else if (strcmp(string, "sawtooth") == 0){
-          sawtooth_generator(amp, mean, freq);
+          sawtooth_generator();
           success = 1;
         }
         else{   // throw error
@@ -312,21 +279,21 @@ void *read_command(){
             condition = 0;
             dread_waveform_config();
             break;
-          case 'a':   // analog config
+          case 'a':   // analog confiq
             pthread_mutex_lock(&aread_mutex);
             condition = 1;
             pthread_cond_signal(&aread_cond);
+            pthread_mutex_unlock(&aread_mutex);
+            break;
+          case 'w':   //write to file
+            pthread_mutex_lock(&aread_mutex);
+            write();
             pthread_mutex_unlock(&aread_mutex);
             break;
           case 'q':   // quit
             // send kill sig
             raise(SIGINT);
             delay(5);
-            break;
-          case 'w':   //write to file
-            pthread_mutex_lock(&aread_mutex);
-            write();
-            pthread_mutex_unlock(&aread_mutex);
             break;
           default:    // not any of the letters above
             printf("Error - \"%s\" is not recognised as a command!\n", input);
@@ -345,23 +312,23 @@ void INThandler(int sig){
 
 void setup_peripheral(){
   struct pci_dev_info info;
+
   uintptr_t dio_in;
+
   unsigned int i;
 
   printf("\fSetting up connection to PCI-DAS 1602...\n\n");
 
-  // connect to PCI server
   memset(&info,0,sizeof(info));
   if(pci_attach(0)<0) {
     perror("pci_attach");
     exit(EXIT_FAILURE);
   }
 
-  // Set Vendor and Device ID
+  // Vendor and Device ID
   info.VendorId=0x1307;
   info.DeviceId=0x01;
 
-  // Attach device driver
   if ((hdl=pci_attach_device(0, PCI_SHARE|PCI_INIT_ALL, 0, &info))==0) {
     perror("pci_attach_device");
     exit(EXIT_FAILURE);
@@ -403,9 +370,8 @@ void setup_peripheral(){
 
   out16(AD_FIFOCLR,0); 						// clear ADC buffer
 
-  // Write to MUX register - SW trigger, UP, SE, 5v, ch 0-0
-  // x x 0 0 | 1  0  0 1  | 0x 7   0 | Diff - 8 channels
-  // SW trig |Diff-Uni 5v| scan 0-7| Single - 16 channels
+out8(DIO_CTLREG,0x90);					// Port A : Input,  Port B : Output,  Port C (upper | lower) : Output | Output
+
   out16(MUXCHAN,0x0D00);
 
   printf("Initialising...\n\n");
@@ -418,18 +384,14 @@ void *print_wave(){
     	out16(DA_CTLREG,0x0a23);			// DA Enable, #0, #1, SW 5V unipolar		2/6
       out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
       out16(DA_DATA,(short) data[i]);
-      delay(3);
-      out16(DA_CTLREG,0x0a43);			// DA Enable, #1, #1, SW 5V unipolar		2/6
-      out16(DA_FIFOCLR, 0);					// Clear DA FIFO  buffer
-    	out16(DA_DATA,(short) data[i]);
-      delay(3);
+      delay(freq);
     }
   }
 }
 
 void *aread_waveform_config(){
   uint16_t adc_in1, adc_in2;
-  unsigned int i, count,mode=1;
+  unsigned int i, count,mode;
   unsigned short chan;
 
   while(1){
@@ -437,39 +399,58 @@ void *aread_waveform_config(){
     while(condition == 0) pthread_cond_wait(&aread_cond, &aread_mutex);
     count=0x00;
     while(count <0x02) {
-      chan= ((count & 0x0f)<<4) | (0x0f & count);
+      chan = ((count & 0x0f)<<4) | (0x0f & count);
       out16(MUXCHAN,0x0D00|chan);		// Set channel	 - burst mode off.
       delay(1);				 							// allow mux to settle
       out16(AD_DATA,0); 						// start ADC
       while(!(in16(MUXCHAN) & 0x4000));
 
-      if (count == 0x00)
+	    mode=in8(DIO_PORTA)-240; 				// Read Port A
+
+      if(count == 0x00)
         adc_in1=in16(AD_DATA);
+      if(count == 0x01){
+        if(mode>7){
+          raise(SIGINT);
+        }
+        else if(mode <= 3){       // A/D 2 controls freq
+          adc_in2 = in16(AD_DATA);
+          freq = adc_in2/655.35
+;
+        }
+        else{                     // A/D 2 controls mean
+          adc_in2 = in16(AD_DATA);
+          mean = adc_in2/(65530.5) + 0.5
+;
+        }
+      }
 
-      if (count == 0x01)
-        adc_in2=in16(AD_DATA);
       fflush(stdout);
-
       count++;
       delay(5);
     }				// Write to MUX register - SW trigger, UP, DE, 5v, ch 0-7
 
     // Setup waveform array
+    amp = adc_in1/(65635.0);    // A/D 1 controls amplitude
     switch (mode){
+      case 0:
+      case 4:
+        sin_generator();
+        break;
       case 1:
-        sin_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+      case 5:
+        square_generator();
         break;
       case 2:
-        square_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+      case 6:
+        triangle_generator();
         break;
       case 3:
-        triangle_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
-        break;
-      case 4:
-        sawtooth_generator(adc_in1/65535.0, 0, adc_in2/6553.5);
+      case 7:
+        sawtooth_generator();
         break;
       default:
-        break;
+       break;
     }
     pthread_mutex_unlock( &aread_mutex);
   }
@@ -483,13 +464,16 @@ void write(){
     perror("Cannot open"); exit(1);
   }
 
-  for(i=0; i<200; i++){
-    if (fputs(str[i],fp)==EOF) {
-      printf("Cannot write"); exit(1);
-    }
-    else {
-      fprintf(fp,"%d/n", data[i]);
-    }
+  // print configurations
+  fprintf(fp, "Configurations\n");
+  fprintf(fp, "Wave Type: \n");
+  fprintf(fp, "Amplitude: \n");
+  fprintf(fp, "Frequency: \n");
+  fprintf(fp, "Mean: \n");
+
+  // print data
+  for(i=0; i<N; i++)
+    fprintf(fp, "Data[%d]: %5.2f\n", i, data[i]);
+
   fclose(fp);
-  }
 }
