@@ -373,11 +373,7 @@ void setup_peripheral(){
   out16(AUTOCAL,0x007f);					// sets automatic calibration : default
 
   out16(AD_FIFOCLR,0); 						// clear ADC buffer
-<<<<<<< HEAD
-
-=======
   out8(DIO_CTLREG,0x90);					// Port A : Input,  Port B : Output,  Port C (upper | lower) : Output | Output
->>>>>>> 8501ac28385802ee92186752075ebc4b6a501ad6
   out16(MUXCHAN,0x0D00);
 
   printf("Initialising...\n\n");
@@ -422,15 +418,11 @@ void *aread_waveform_config(){
         }
         else if(mode <= 3){       // A/D 2 controls freq
           adc_in2 = in16(AD_DATA);
-<<<<<<< HEAD
-
-=======
           freq = adc_in2/655.35 + 1;  // min freq = 1 Hz
         }
         else{                     // A/D 2 controls mean
           adc_in2 = in16(AD_DATA);
           mean = adc_in2/65530.5 - 0.5;   // mean value between -0.5 and 0.5
->>>>>>> 8501ac28385802ee92186752075ebc4b6a501ad6
         }
       }
 
