@@ -422,7 +422,7 @@ void *aread_waveform_config(){
         }
         else if(mode <= 3){       // A/D 2 controls freq
           adc_in2 = in16(AD_DATA);
-          freq = adc_in2/655.35 + 0.1;  // min freq = 0.1 Hz
+          freq = adc_in2/6553.5 + 0.1;  // min freq = 0.1 Hz
         }
         else{                     // A/D 2 controls mean
           adc_in2 = in16(AD_DATA);
