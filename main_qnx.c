@@ -398,7 +398,7 @@ void *print_wave(){
 void *aread_waveform_config(){
   /* This function displays waveform into the oscilloscope */
   uint16_t adc_in1, adc_in2;
-  unsigned int i, count,mode;
+  unsigned int i, count;
   unsigned short chan;
 
   while(1){
@@ -412,7 +412,7 @@ void *aread_waveform_config(){
       out16(AD_DATA,0); 						// start ADC
       while(!(in16(MUXCHAN) & 0x4000));
 
-	    mode=in8(DIO_PORTA)-240; 				// Read Port A
+	    mode = in8(DIO_PORTA)-240; 				// Read Port A
 
       if(count == 0x00)
         adc_in1=in16(AD_DATA);
