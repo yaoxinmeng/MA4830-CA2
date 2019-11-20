@@ -1,3 +1,13 @@
+/* #########################################################################
+Authors:
+  Yao Xin Meng
+  Li Fulin
+  Huang Shurui
+  Koh Hui Fang
+  Justin Koh
+  Chan Zheng Wei
+Date: 20/11/2019
+######################################################################### */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -20,23 +30,13 @@
 #define	TRIGGER			iobase[1] + 4				// Badr1 + 4
 #define	AUTOCAL			iobase[1] + 6				// Badr1 + 6
 #define DA_CTLREG		iobase[1] + 8				// Badr1 + 8
-
 #define	AD_DATA			iobase[2] + 0				// Badr2 + 0
 #define	AD_FIFOCLR	iobase[2] + 2				// Badr2 + 2
-
-#define	TIMER0			iobase[3] + 0				// Badr3 + 0
-#define	TIMER1			iobase[3] + 1				// Badr3 + 1
-#define	TIMER2			iobase[3] + 2				// Badr3 + 2
 #define	COUNTCTL		iobase[3] + 3				// Badr3 + 3
 #define	DIO_PORTA		iobase[3] + 4				// Badr3 + 4
 #define	DIO_PORTB		iobase[3] + 5				// Badr3 + 5
 #define	DIO_PORTC		iobase[3] + 6				// Badr3 + 6
 #define	DIO_CTLREG	iobase[3] + 7				// Badr3 + 7
-#define	PACER1			iobase[3] + 8				// Badr3 + 8
-#define	PACER2			iobase[3] + 9				// Badr3 + 9
-#define	PACER3			iobase[3] + a				// Badr3 + a
-#define	PACERCTL		iobase[3] + b				// Badr3 + b
-
 #define DA_DATA			iobase[4] + 0				// Badr4 + 0
 #define	DA_FIFOCLR	iobase[4] + 2				// Badr4 + 2
 
@@ -151,16 +151,12 @@ void sin_generator(){
 
 void square_generator(){
   int i;
-  float delta, dummy;
 
-
-	delta=(2.0*3.142)/200.0;					// increment
   for(i=0; i<N; i++) {
-    dummy = (amp/2*(sinf((float)(i*delta))) + 1.0) * 0x8000;
-  if (dummy > 0x8000)
-    data[i]= (amp/2 + mean)*0x8000;			// add offset +  scale
-  else
-    data[i]= (mean - amp/2)*0x8000;
+    if (i < N/2)
+      data[i]= (amp/2 + mean +1)*0x8000;			// add offset + scale
+    else
+      data[i]= (mean +1 - amp/2)*0x8000;
   }
 }
 
@@ -285,18 +281,18 @@ void *read_command(){
             break;
           case 'a':   // analog confiq
             if (condition == 0){
+              printf("ANALOG MODE INITIATED\n");
               pthread_mutex_lock(&aread_mutex);
               condition = 1;
               pthread_cond_signal(&aread_cond);
               pthread_mutex_unlock(&aread_mutex);
             }
             break;
-          case 'w':   //write to file
-            condition = 0;
-            pthread_mutex_lock(&aread_mutex);
+          case 'w':   // write to file
+            printf("Writing to file...\n");
+            condition = 0;                  // block aread_waveform_config thread
             writeFile();
-            pthread_mutex_unlock(&aread_mutex);
-            printf("Mode Cleared. Please enter input.");
+            printf("Write success! Please enter a command.");
             break;
           case 'q':   // quit
             // send kill sig
@@ -495,7 +491,7 @@ void writeFile(){
   // print data
   fprintf(fp, "\nData points\n");
   for(i=0; i<N; i++)
-    fprintf(fp, "Data[%d]: %8d\n", i, data[i]);
+    fprintf(fp, "Data[%d]: %d\n", i, (short)data[i]);
 
   fclose(fp);
 }
